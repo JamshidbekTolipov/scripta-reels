@@ -10,7 +10,11 @@ import {
   useVideoConfig,
 } from 'remotion';
 
-// public/sfx/ papkasiga whoosh.mp3 va pop.mp3 tashlaganingdan keyin buni true qil
+const FPS = 30;
+const sec = (s: number) => Math.round(s * FPS);
+
+// public/ papkasiga tashlagan fayl nomingni yoz (masalan: '1rav_V1.mp4' yoki 'audio.mp3')
+const VOICE_FILE = '1rav_V1.mp4';
 const USE_SFX = false;
 
 const ITEMS = [
@@ -18,32 +22,43 @@ const ITEMS = [
     num: '01',
     bad: 'For example',
     good: 'For instance, this can be clearly seen in...',
+    startSec: 3.5,
+    endSec: 9.5,
+    goodDelaySec: 1.5,
   },
   {
     num: '02',
     bad: 'Firstly',
     good: 'One of the main reasons for this is that...',
+    startSec: 9.5,
+    endSec: 14.0,
+    goodDelaySec: 1.2,
   },
   {
     num: '03',
     bad: 'Secondly',
     good: 'Another significant point to consider is...',
+    startSec: 14.0,
+    endSec: 18.5,
+    goodDelaySec: 1.2,
   },
   {
     num: '04',
     bad: 'Because',
-    good: 'The particular reason for this circumstance is...',
+    good: 'The particular reason for the circumstance...',
+    startSec: 18.5,
+    endSec: 22.2,
+    goodDelaySec: 1.1,
   },
   {
     num: '05',
     bad: 'In conclusion',
     good: 'To sum up, the arguments discussed above clearly indicate that...',
+    startSec: 22.2,
+    endSec: 28.0,
+    goodDelaySec: 1.3,
   },
 ];
-
-const INTRO_DURATION = 90; // 3 soniya
-const ITEM_DURATION = 105; // har bir ibora 3.5 soniya
-const OUTRO_DURATION = 105; // 3.5 soniya
 
 const IntroScene: React.FC = () => {
   const frame = useCurrentFrame();
@@ -61,7 +76,7 @@ const IntroScene: React.FC = () => {
         textAlign: 'center',
       }}
     >
-      {USE_SFX && <Audio src={staticFile('sfx/whoosh.mp3')} volume={0.6} />}
+      {USE_SFX && <Audio src={staticFile('sfx/whoosh.mp3')} volume={0.5} />}
       <div
         style={{
           opacity: badgeOpacity,
@@ -89,27 +104,29 @@ const IntroScene: React.FC = () => {
         }}
       >
         Essay uzunroq bo‘lishi uchun{' '}
-        <span style={{ color: '#38BDF8' }}>TOP 5 ta</span> ibora
+        <span style={{ color: '#38BDF8' }}>TOP 5 ta</span> so‘z
       </h1>
     </AbsoluteFill>
   );
 };
 
-const CardScene: React.FC<{ num: string; bad: string; good: string }> = ({
-  num,
-  bad,
-  good,
-}) => {
+const CardScene: React.FC<{
+  num: string;
+  bad: string;
+  good: string;
+  goodDelaySec: number;
+}> = ({ num, bad, good, goodDelaySec }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
+  const delayFrames = sec(goodDelaySec);
   const badSlide = spring({ frame, fps, config: { damping: 15 } });
-  const strikeWidth = interpolate(frame, [15, 30], [0, 100], {
+  const strikeWidth = interpolate(frame, [delayFrames - 12, delayFrames], [0, 100], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
   const goodPop = spring({
-    frame: Math.max(0, frame - 28),
+    frame: Math.max(0, frame - delayFrames),
     fps,
     config: { damping: 12, stiffness: 110 },
   });
@@ -122,14 +139,13 @@ const CardScene: React.FC<{ num: string; bad: string; good: string }> = ({
         padding: '0 70px',
       }}
     >
-      {USE_SFX && <Audio src={staticFile('sfx/whoosh.mp3')} volume={0.5} />}
+      {USE_SFX && <Audio src={staticFile('sfx/whoosh.mp3')} volume={0.4} />}
       {USE_SFX && (
-        <Sequence from={28}>
-          <Audio src={staticFile('sfx/pop.mp3')} volume={0.7} />
+        <Sequence from={delayFrames}>
+          <Audio src={staticFile('sfx/pop.mp3')} volume={0.6} />
         </Sequence>
       )}
 
-      {/* Raqam */}
       <div
         style={{
           fontSize: 34,
@@ -142,7 +158,6 @@ const CardScene: React.FC<{ num: string; bad: string; good: string }> = ({
         {num} / 05
       </div>
 
-      {/* Eski / oddiy ibora */}
       <div
         style={{
           width: '100%',
@@ -191,7 +206,6 @@ const CardScene: React.FC<{ num: string; bad: string; good: string }> = ({
         </div>
       </div>
 
-      {/* Yangi / akademik ibora */}
       <div
         style={{
           width: '100%',
@@ -231,7 +245,11 @@ const CardScene: React.FC<{ num: string; bad: string; good: string }> = ({
   );
 };
 
-const OutroScene: React.FC = () => {
+const TextSlide: React.FC<{ text: string; highlight?: string; showCTA?: boolean }> = ({
+  text,
+  highlight,
+  showCTA,
+}) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const pop = spring({ frame, fps, config: { damping: 14 } });
@@ -245,43 +263,48 @@ const OutroScene: React.FC = () => {
         textAlign: 'center',
       }}
     >
-      {USE_SFX && <Audio src={staticFile('sfx/pop.mp3')} volume={0.6} />}
       <div style={{ transform: `scale(${pop})` }}>
-        <p
-          style={{
-            color: '#CBD5E1',
-            fontSize: 46,
-            fontWeight: 600,
-            lineHeight: 1.4,
-            marginBottom: 56,
-          }}
-        >
-          Idea kelmay qolganida va so‘zlar kam bo‘lganida yordam beradi.
-        </p>
-        <div
-          style={{
-            backgroundColor: '#2563EB',
-            color: '#FFFFFF',
-            fontSize: 44,
-            fontWeight: 800,
-            padding: '28px 56px',
-            borderRadius: 24,
-            display: 'inline-block',
-            marginBottom: 40,
-          }}
-        >
-          Yo‘qotib qo‘ymaslik uchun saqlab qo‘ying 📌
-        </div>
-        <div
-          style={{
-            color: '#38BDF8',
-            fontSize: 42,
-            fontWeight: 800,
-            letterSpacing: 2,
-          }}
-        >
-          scripta.uz
-        </div>
+        {!showCTA ? (
+          <p
+            style={{
+              color: '#F8FAFC',
+              fontSize: 58,
+              fontWeight: 800,
+              lineHeight: 1.35,
+              margin: 0,
+            }}
+          >
+            {text}{' '}
+            {highlight && <span style={{ color: '#38BDF8' }}>{highlight}</span>}
+          </p>
+        ) : (
+          <>
+            <div
+              style={{
+                backgroundColor: '#2563EB',
+                color: '#FFFFFF',
+                fontSize: 48,
+                fontWeight: 800,
+                padding: '32px 56px',
+                borderRadius: 28,
+                display: 'inline-block',
+                marginBottom: 44,
+              }}
+            >
+              {text}
+            </div>
+            <div
+              style={{
+                color: '#38BDF8',
+                fontSize: 46,
+                fontWeight: 800,
+                letterSpacing: 2,
+              }}
+            >
+              scripta.uz
+            </div>
+          </>
+        )}
       </div>
     </AbsoluteFill>
   );
@@ -299,6 +322,9 @@ export const ReelsVideo: React.FC = () => {
         fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
       }}
     >
+      {/* Asl video audiosi */}
+      <Audio src={staticFile(VOICE_FILE)} volume={1} />
+
       {/* Yuqori progress bar */}
       <div
         style={{
@@ -337,25 +363,46 @@ export const ReelsVideo: React.FC = () => {
         @SCRIPTA.UZ
       </div>
 
-      <Sequence from={0} durationInFrames={INTRO_DURATION}>
+      {/* 00:00 - 00:03.5 Intro */}
+      <Sequence from={0} durationInFrames={sec(3.5)}>
         <IntroScene />
       </Sequence>
 
-      {ITEMS.map((item, idx) => (
+      {/* 00:03.5 - 00:28.0 TOP 5 ibora */}
+      {ITEMS.map((item) => (
         <Sequence
           key={item.num}
-          from={INTRO_DURATION + idx * ITEM_DURATION}
-          durationInFrames={ITEM_DURATION}
+          from={sec(item.startSec)}
+          durationInFrames={sec(item.endSec - item.startSec)}
         >
-          <CardScene num={item.num} bad={item.bad} good={item.good} />
+          <CardScene
+            num={item.num}
+            bad={item.bad}
+            good={item.good}
+            goodDelaySec={item.goodDelaySec}
+          />
         </Sequence>
       ))}
 
-      <Sequence
-        from={INTRO_DURATION + ITEMS.length * ITEM_DURATION}
-        durationInFrames={OUTRO_DURATION}
-      >
-        <OutroScene />
+      {/* 00:28.0 - 00:35.0 Outro 1 */}
+      <Sequence from={sec(28.0)} durationInFrames={sec(7.0)}>
+        <TextSlide
+          text="Bu so‘zlar idea kelmay qolganida va so‘zlaringiz kam bo‘lganida"
+          highlight="yordam beradi."
+        />
+      </Sequence>
+
+      {/* 00:35.0 - 00:38.5 Outro 2 */}
+      <Sequence from={sec(35.0)} durationInFrames={sec(3.5)}>
+        <TextSlide
+          text="Agar sizda idea yetarli bo‘lsa,"
+          highlight="foydalanishingiz shart emas."
+        />
+      </Sequence>
+
+      {/* 00:38.5 - 00:41.8 Outro 3 (CTA) */}
+      <Sequence from={sec(38.5)} durationInFrames={sec(3.3)}>
+        <TextSlide text="Yo‘qotib qo‘ymaslik uchun saqlab qo‘ying 📌" showCTA />
       </Sequence>
     </AbsoluteFill>
   );
