@@ -1,8 +1,7 @@
 import React from 'react';
 import {
   AbsoluteFill,
-  Audio,
-  Sequence,
+  OffthreadVideo,
   interpolate,
   spring,
   staticFile,
@@ -13,328 +12,216 @@ import {
 const FPS = 30;
 const sec = (s: number) => Math.round(s * FPS);
 
-// public/ papkasiga tashlagan fayl nomingni yoz (masalan: '1rav_V1.mp4' yoki 'audio.mp3')
-const VOICE_FILE = '1rav_V1.mp4';
-const USE_SFX = false;
+type SubtitleCue = {
+  start: number;
+  end: number;
+  text: string;
+  highlight?: string; // Qizil plashka yoki nur bilan ajratiladigan so'z
+  style?: 'normal' | 'red-box' | 'red-glow';
+  bw?: boolean; // Oq-qora (dramatik) effekt
+  zoom?: boolean; // Sekin yaqinlashtirish
+};
 
-const ITEMS = [
+const CUES: SubtitleCue[] = [
   {
-    num: '01',
-    bad: 'For example',
-    good: 'For instance, this can be clearly seen in...',
-    startSec: 3.5,
-    endSec: 9.5,
-    goodDelaySec: 1.5,
+    start: 0.0,
+    end: 2.5,
+    text: 'Hech kim ayta olmagan',
+    highlight: 'GAPLARNI AYTAMIZ',
+    style: 'red-box',
+    zoom: true,
   },
   {
-    num: '02',
-    bad: 'Firstly',
-    good: 'One of the main reasons for this is that...',
-    startSec: 9.5,
-    endSec: 14.0,
-    goodDelaySec: 1.2,
+    start: 2.5,
+    end: 5.5,
+    text: 'Love, otnosheniya, lyuboy narsa bu —',
+    highlight: 'TRANZAKSIYA',
+    style: 'red-glow',
   },
   {
-    num: '03',
-    bad: 'Secondly',
-    good: 'Another significant point to consider is...',
-    startSec: 14.0,
-    endSec: 18.5,
-    goodDelaySec: 1.2,
+    start: 5.5,
+    end: 8.5,
+    text: 'Logistika sohasida bilgan ana shu ko‘rib o‘tiradi meni.',
+    style: 'normal',
   },
   {
-    num: '04',
-    bad: 'Because',
-    good: 'The particular reason for the circumstance...',
-    startSec: 18.5,
-    endSec: 22.2,
-    goodDelaySec: 1.1,
+    start: 8.5,
+    end: 11.0,
+    text: 'Lyuboy kishi prosta tak',
+    highlight: 'YAXSHI KO‘RMAYDI',
+    style: 'red-box',
   },
   {
-    num: '05',
-    bad: 'In conclusion',
-    good: 'To sum up, the arguments discussed above clearly indicate that...',
-    startSec: 22.2,
-    endSec: 28.0,
-    goodDelaySec: 1.3,
+    start: 11.0,
+    end: 13.5,
+    text: 'Bir aytdim, ikki aytdim, uch aytdim —',
+    highlight: 'HECH KIM RAHM QILMAYDI',
+    style: 'red-glow',
+    bw: true,
+    zoom: true,
+  },
+  {
+    start: 13.5,
+    end: 16.8,
+    text: 'Men senga shuni orqasidan ishlab beraman —',
+    highlight: '$10 MILLION',
+    style: 'red-glow',
+    zoom: true,
+  },
+  {
+    start: 16.8,
+    end: 19.8,
+    text: 'Lyuboy o‘yin bo‘lsa,',
+    highlight: 'OCHIQ-OYDIN KEL',
+    style: 'red-box',
+  },
+  {
+    start: 19.8,
+    end: 23.0,
+    text: 'Eng og‘riqli nuqtasi shundaki —',
+    highlight: 'XUDO SHUNI XOHISH QILDI',
+    style: 'normal',
+    bw: true,
+  },
+  {
+    start: 23.0,
+    end: 25.0,
+    text: 'Sen kim bilan o‘tirganingni',
+    highlight: 'ENDI BILDING',
+    style: 'red-box',
+  },
+  {
+    start: 25.0,
+    end: 27.0,
+    text: 'Bir oyda chiqarganman —',
+    highlight: '$6 MILLION',
+    style: 'red-glow',
+    zoom: true,
+  },
+  {
+    start: 27.0,
+    end: 29.5,
+    text: 'Yuzini ko‘rsatsak, ota-onasiga',
+    highlight: 'TAMOM DEYAPTI',
+    style: 'red-box',
+  },
+  {
+    start: 29.5,
+    end: 33.5,
+    text: 'Bir oyda $1000 topishni o‘rgatamiz deydi.',
+    highlight: 'U LOGISTIKA EMAS!',
+    style: 'red-glow',
+  },
+  {
+    start: 33.5,
+    end: 36.0,
+    text: 'Hammani birlashtirish — mana bu mening',
+    highlight: 'IMPERIYAM',
+    style: 'red-glow',
+    bw: true,
+    zoom: true,
+  },
+  {
+    start: 36.0,
+    end: 40.2,
+    text: 'Bir oyda logistika o‘rgatamiz degan ustozlariga ham',
+    highlight: 'MING LA’NAT',
+    style: 'red-box',
+  },
+  {
+    start: 40.2,
+    end: 42.2,
+    text: 'Konsert berib yuribdi',
+    highlight: 'TREYDERLAR',
+    style: 'normal',
+  },
+  {
+    start: 42.2,
+    end: 46.0,
+    text: 'O‘yiniga rozi bo‘lmaganlarim — hozir kompaniyasi',
+    highlight: 'YO‘Q',
+    style: 'red-glow',
+    bw: true,
+    zoom: true,
   },
 ];
 
-const IntroScene: React.FC = () => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-
-  const scale = spring({ frame, fps, config: { damping: 14, stiffness: 120 } });
-  const badgeOpacity = interpolate(frame, [0, 15], [0, 1], { extrapolateRight: 'clamp' });
-
-  return (
-    <AbsoluteFill
-      style={{
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: '0 80px',
-        textAlign: 'center',
-      }}
-    >
-      {USE_SFX && <Audio src={staticFile('sfx/whoosh.mp3')} volume={0.5} />}
-      <div
-        style={{
-          opacity: badgeOpacity,
-          backgroundColor: 'rgba(59, 130, 246, 0.18)',
-          border: '2px solid #3B82F6',
-          color: '#60A5FA',
-          padding: '14px 36px',
-          borderRadius: 999,
-          fontSize: 32,
-          fontWeight: 700,
-          letterSpacing: 3,
-          marginBottom: 48,
-        }}
-      >
-        IELTS WRITING
-      </div>
-      <h1
-        style={{
-          transform: `scale(${scale})`,
-          color: '#F8FAFC',
-          fontSize: 82,
-          fontWeight: 900,
-          lineHeight: 1.15,
-          margin: 0,
-        }}
-      >
-        Essay uzunroq bo‘lishi uchun{' '}
-        <span style={{ color: '#38BDF8' }}>TOP 5 ta</span> so‘z
-      </h1>
-    </AbsoluteFill>
-  );
-};
-
-const CardScene: React.FC<{
-  num: string;
-  bad: string;
-  good: string;
-  goodDelaySec: number;
-}> = ({ num, bad, good, goodDelaySec }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-
-  const delayFrames = sec(goodDelaySec);
-  const badSlide = spring({ frame, fps, config: { damping: 15 } });
-  const strikeWidth = interpolate(frame, [delayFrames - 12, delayFrames], [0, 100], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-  const goodPop = spring({
-    frame: Math.max(0, frame - delayFrames),
-    fps,
-    config: { damping: 12, stiffness: 110 },
-  });
-
-  return (
-    <AbsoluteFill
-      style={{
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: '0 70px',
-      }}
-    >
-      {USE_SFX && <Audio src={staticFile('sfx/whoosh.mp3')} volume={0.4} />}
-      {USE_SFX && (
-        <Sequence from={delayFrames}>
-          <Audio src={staticFile('sfx/pop.mp3')} volume={0.6} />
-        </Sequence>
-      )}
-
-      <div
-        style={{
-          fontSize: 34,
-          fontWeight: 800,
-          color: '#64748B',
-          letterSpacing: 4,
-          marginBottom: 30,
-        }}
-      >
-        {num} / 05
-      </div>
-
-      <div
-        style={{
-          width: '100%',
-          backgroundColor: 'rgba(239, 68, 68, 0.12)',
-          border: '2px solid rgba(239, 68, 68, 0.45)',
-          borderRadius: 32,
-          padding: '44px 48px',
-          marginBottom: 40,
-          transform: `translateY(${(1 - badSlide) * 60}px)`,
-          opacity: badSlide,
-          textAlign: 'center',
-        }}
-      >
-        <div
-          style={{
-            color: '#F87171',
-            fontSize: 28,
-            fontWeight: 700,
-            letterSpacing: 2,
-            marginBottom: 16,
-          }}
-        >
-          ❌ ODDIY
-        </div>
-        <div
-          style={{
-            position: 'relative',
-            display: 'inline-block',
-            color: '#E2E8F0',
-            fontSize: 56,
-            fontWeight: 700,
-          }}
-        >
-          {bad}
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: '52%',
-              height: 6,
-              width: `${strikeWidth}%`,
-              backgroundColor: '#EF4444',
-              borderRadius: 4,
-            }}
-          />
-        </div>
-      </div>
-
-      <div
-        style={{
-          width: '100%',
-          backgroundColor: 'rgba(14, 165, 233, 0.14)',
-          border: '3px solid #38BDF8',
-          borderRadius: 36,
-          padding: '54px 48px',
-          transform: `scale(${goodPop})`,
-          opacity: goodPop,
-          textAlign: 'center',
-          boxShadow: '0 20px 60px rgba(56, 189, 248, 0.2)',
-        }}
-      >
-        <div
-          style={{
-            color: '#38BDF8',
-            fontSize: 28,
-            fontWeight: 800,
-            letterSpacing: 2,
-            marginBottom: 20,
-          }}
-        >
-          ✅ AKADEMIK VARIANT
-        </div>
-        <div
-          style={{
-            color: '#FFFFFF',
-            fontSize: 54,
-            fontWeight: 800,
-            lineHeight: 1.3,
-          }}
-        >
-          “{good}”
-        </div>
-      </div>
-    </AbsoluteFill>
-  );
-};
-
-const TextSlide: React.FC<{ text: string; highlight?: string; showCTA?: boolean }> = ({
-  text,
-  highlight,
-  showCTA,
-}) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const pop = spring({ frame, fps, config: { damping: 14 } });
-
-  return (
-    <AbsoluteFill
-      style={{
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: '0 80px',
-        textAlign: 'center',
-      }}
-    >
-      <div style={{ transform: `scale(${pop})` }}>
-        {!showCTA ? (
-          <p
-            style={{
-              color: '#F8FAFC',
-              fontSize: 58,
-              fontWeight: 800,
-              lineHeight: 1.35,
-              margin: 0,
-            }}
-          >
-            {text}{' '}
-            {highlight && <span style={{ color: '#38BDF8' }}>{highlight}</span>}
-          </p>
-        ) : (
-          <>
-            <div
-              style={{
-                backgroundColor: '#2563EB',
-                color: '#FFFFFF',
-                fontSize: 48,
-                fontWeight: 800,
-                padding: '32px 56px',
-                borderRadius: 28,
-                display: 'inline-block',
-                marginBottom: 44,
-              }}
-            >
-              {text}
-            </div>
-            <div
-              style={{
-                color: '#38BDF8',
-                fontSize: 46,
-                fontWeight: 800,
-                letterSpacing: 2,
-              }}
-            >
-              scripta.uz
-            </div>
-          </>
-        )}
-      </div>
-    </AbsoluteFill>
-  );
-};
-
 export const ReelsVideo: React.FC = () => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { fps, durationInFrames } = useVideoConfig();
+  const currentSec = frame / fps;
+
+  const activeCue = CUES.find(
+    (c) => currentSec >= c.start && currentSec < c.end
+  );
+
+  // Kadr ichidagi vaqt (animatsiya uchun)
+  const cueFrame = activeCue ? Math.max(0, frame - sec(activeCue.start)) : 0;
+  const pop = spring({
+    frame: cueFrame,
+    fps,
+    config: { damping: 14, stiffness: 160 },
+  });
+
+  // Zoom effekti (16:9 videoni 9:16 ga to'ldirib turish + muhim joylarda yaqinlashtirish)
+  const zoomScale = activeCue?.zoom
+    ? interpolate(
+        cueFrame,
+        [0, sec(activeCue.end - activeCue.start)],
+        [1.04, 1.14],
+        { extrapolateRight: 'clamp' }
+      )
+    : 1.02;
+
   const progress = (frame / durationInFrames) * 100;
 
   return (
     <AbsoluteFill
       style={{
-        background: 'radial-gradient(circle at 50% 20%, #0F172A 0%, #020617 100%)',
-        fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+        backgroundColor: '#000000',
+        fontFamily: 'Inter, Impact, system-ui, sans-serif',
+        overflow: 'hidden',
       }}
     >
-      {/* Asl video audiosi */}
-      <Audio src={staticFile(VOICE_FILE)} volume={1} />
+      {/* Asl video (9:16 ga moslab kesilgan + oq-qora va zoom effektlari) */}
+      <AbsoluteFill
+        style={{
+          transform: `scale(${zoomScale})`,
+          filter: activeCue?.bw
+            ? 'grayscale(100%) contrast(125%) brightness(90%)'
+            : 'contrast(108%) saturate(110%)',
+          transition: 'filter 0.15s ease',
+        }}
+      >
+        <OffthreadVideo
+          src={staticFile('video_1.mp4')}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: 'center center',
+          }}
+        />
+      </AbsoluteFill>
 
-      {/* Yuqori progress bar */}
+      {/* Pastki va yuqori qorong'u gradient (subtitrlar aniq o'qilishi uchun) */}
+      <AbsoluteFill
+        style={{
+          background:
+            'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 22%, rgba(0,0,0,0) 58%, rgba(0,0,0,0.88) 100%)',
+        }}
+      />
+
+      {/* Yuqori progress bar (qizil podcast uslubida) */}
       <div
         style={{
           position: 'absolute',
-          top: 60,
-          left: 60,
-          right: 60,
-          height: 10,
-          backgroundColor: 'rgba(255,255,255,0.1)',
-          borderRadius: 10,
+          top: 56,
+          left: 56,
+          right: 56,
+          height: 8,
+          backgroundColor: 'rgba(255,255,255,0.18)',
+          borderRadius: 8,
           overflow: 'hidden',
         }}
       >
@@ -342,68 +229,77 @@ export const ReelsVideo: React.FC = () => {
           style={{
             width: `${progress}%`,
             height: '100%',
-            backgroundColor: '#38BDF8',
+            backgroundColor: '#EF4444',
           }}
         />
       </div>
 
-      {/* Pastki watermark */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 70,
-          width: '100%',
-          textAlign: 'center',
-          color: 'rgba(148, 163, 184, 0.6)',
-          fontSize: 30,
-          fontWeight: 700,
-          letterSpacing: 3,
-        }}
-      >
-        @SCRIPTA.UZ
-      </div>
-
-      {/* 00:00 - 00:03.5 Intro */}
-      <Sequence from={0} durationInFrames={sec(3.5)}>
-        <IntroScene />
-      </Sequence>
-
-      {/* 00:03.5 - 00:28.0 TOP 5 ibora */}
-      {ITEMS.map((item) => (
-        <Sequence
-          key={item.num}
-          from={sec(item.startSec)}
-          durationInFrames={sec(item.endSec - item.startSec)}
+      {/* Dinamik Subtitrlar */}
+      {activeCue && (
+        <AbsoluteFill
+          style={{
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            padding: '0 64px 260px 64px',
+            textAlign: 'center',
+          }}
         >
-          <CardScene
-            num={item.num}
-            bad={item.bad}
-            good={item.good}
-            goodDelaySec={item.goodDelaySec}
-          />
-        </Sequence>
-      ))}
+          <div
+            style={{
+              transform: `scale(${interpolate(pop, [0, 1], [0.88, 1])}) translateY(${interpolate(
+                pop,
+                [0, 1],
+                [24, 0]
+              )}px)`,
+              opacity: pop,
+            }}
+          >
+            {/* Oddiy matn qismi */}
+            <div
+              style={{
+                color: '#FFFFFF',
+                fontSize: 54,
+                fontWeight: 800,
+                lineHeight: 1.22,
+                textShadow: '0 6px 24px rgba(0,0,0,0.95)',
+                marginBottom: activeCue.highlight ? 18 : 0,
+              }}
+            >
+              {activeCue.text}
+            </div>
 
-      {/* 00:28.0 - 00:35.0 Outro 1 */}
-      <Sequence from={sec(28.0)} durationInFrames={sec(7.0)}>
-        <TextSlide
-          text="Bu so‘zlar idea kelmay qolganida va so‘zlaringiz kam bo‘lganida"
-          highlight="yordam beradi."
-        />
-      </Sequence>
-
-      {/* 00:35.0 - 00:38.5 Outro 2 */}
-      <Sequence from={sec(35.0)} durationInFrames={sec(3.5)}>
-        <TextSlide
-          text="Agar sizda idea yetarli bo‘lsa,"
-          highlight="foydalanishingiz shart emas."
-        />
-      </Sequence>
-
-      {/* 00:38.5 - 00:41.8 Outro 3 (CTA) */}
-      <Sequence from={sec(38.5)} durationInFrames={sec(3.3)}>
-        <TextSlide text="Yo‘qotib qo‘ymaslik uchun saqlab qo‘ying 📌" showCTA />
-      </Sequence>
+            {/* Ajratib ko'rsatiladigan kuchli so'z */}
+            {activeCue.highlight && (
+              <div
+                style={{
+                  display: 'inline-block',
+                  fontSize: activeCue.style === 'red-glow' ? 74 : 62,
+                  fontWeight: 900,
+                  letterSpacing: 2,
+                  textTransform: 'uppercase',
+                  padding:
+                    activeCue.style === 'red-box' ? '12px 32px' : '4px 12px',
+                  borderRadius: activeCue.style === 'red-box' ? 16 : 0,
+                  backgroundColor:
+                    activeCue.style === 'red-box' ? '#DC2626' : 'transparent',
+                  color:
+                    activeCue.style === 'red-glow' ? '#EF4444' : '#FFFFFF',
+                  textShadow:
+                    activeCue.style === 'red-glow'
+                      ? '0 0 36px rgba(239, 68, 68, 0.9), 0 4px 16px rgba(0,0,0,0.95)'
+                      : '0 4px 14px rgba(0,0,0,0.6)',
+                  boxShadow:
+                    activeCue.style === 'red-box'
+                      ? '0 12px 32px rgba(220, 38, 38, 0.5)'
+                      : 'none',
+                }}
+              >
+                {activeCue.highlight}
+              </div>
+            )}
+          </div>
+        </AbsoluteFill>
+      )}
     </AbsoluteFill>
   );
 };
